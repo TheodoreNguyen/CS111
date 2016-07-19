@@ -1,0 +1,17 @@
+CS111 project 3B, Spring 2016 - submission by THEODORE NGUYEN, UID: 704-156-701
+
+included files: Makefile, README, lab3b.py
+
+shell command to compile: you don't compile things in python
+	-- note that my default "make" in the makefile just basically takes the python source code
+	and copies it to a file labeled "lab3b", then gives execute permission to it. From it, you
+	can basically execute it as ./lab3b
+
+shell command to execute: python lab3b.py
+
+It works on the 6 CSV's given, as the output i get when diffing my output with the given check
+file (after sorting both of them) provides no output. Not too sure about if it will work on
+others though
+
+
+

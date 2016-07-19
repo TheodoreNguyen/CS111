@@ -1,0 +1,31 @@
+CS111 project 2B, Spring 2016 - submission by THEODORE NGUYEN, UID: 704-156-701
+
+Included files: lab2b.c SortedList.c SortedList.h Makefile README graph1.png graph2.png
+
+QUESTION 2B.1A:
+Explain the variation in time per operation vs the number of iterations?
+	-- The number of operations increases in a quadratic relation to the number of iterations.
+	The elapsed time increases at a slower rate than the number of operations, since the latter
+	increases quadratically, causing a much higher number of operations at a high number of iterations
+	in relation to the total elapsed time. 
+
+
+QUESTION 2B.1B:
+How would you propose to correct for this effect?
+	-- We might be able to correct for this effect by dividing the total time cost by the 
+	total number of list elements before (or after) we divide by the total number of operations.
+	That is, right now we have total time T and number of ops N; the number we have and want to
+	correct is T/N, total time per operation. We correct this by dividing by L, the number of 
+	elements in the list. The expression T/N/L is our proposed corrected time.
+
+
+
+QUESTIONS 2B.2A:
+Compare the variation in time per protected operation vs the number of threads in
+Project 2B and in Project 2A. Explain the difference.
+	-- The critical section of the project 2B is substantially larger of that
+	in project 2A. Therefore the lock is held for each thread for a longer period of time,
+	increasing the probability of conflict between threads as the number of threads increase.
+	The increased conflict between threads all trying to access the list results in more
+	overhead and accounts for the increased time
+

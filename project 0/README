@@ -1,0 +1,55 @@
+CS111 project 0, Spring 2016 - submission by THEODORE NGUYEN, UID: 704-156-701
+
+Included files:
+	
+	- 'lab0.c' = this is the included C source module that implements the desired program. Satisfies #3
+	- 'MakeFile' = this is the MakeFile used to build both the program and the tarball. Satisifes #4	
+	- 'segfault.png' = this is the screen snapshot of the gdb stack backtrace after taking the segfault
+			from running the program with the segfault argument. Satisifes #5
+	- 'btsegfault.png' = this is the screen snapshot of the gdb stack backtrace after setting a breakpoint
+			right up til before the segfault and inspects the pointer to verify it is the NULL pointer. #6
+	- 'README' = this is this file, detailing aspects of the project
+
+Smoke tests: (make check)
+	The smoke test tests a few input parameters. It first creates an input file of arbitrary characters. After creating
+	the executable, it tests the latter file as input while specifying an output file that does not exist already, and then checks
+	if the output equals the input. It then changes the value of the output file (but either way, its so that the output file
+	exists already) and tests the input file against an already created output file to be overwritten. It includes the catch
+	option to show that catch does not affect the functionality unless segfault is also used as an option. It then does not
+	use the option input, but instead writes to STDOUT and compares that output to the input. It then creates an empty file and
+	compares it to the option where the input and the output file are the same. In this case, the file should overwrite itself,
+	making an empty file. Afterwards, it deletes all files make check has used.
+
+
+Other sources used:
+	I essentially used everything I could find on the internet. Some sites include unix.stackexchange.com, 
+	stackoverflow.com, linux.die.net, gnu.org, tutorialspoint.com, man7.org, wikipedia.org, cs.rutgers.edu. There are 
+	some over 40 direct web links; I will not post them here for sake of time and space. 
+
+Other information to bring to attention:
+	
+	I essentially followed the specification as well as restrictions gathered from answers and information on
+	Piazza. Usage of the program SHOULD be identical to how the specification desires, so I will leave it out here. 
+
+Description of program: (most of this can be found in the comments of the code)
+	The program takes in arguments from the command line. It enters an infinite loop to eventually loop through 
+	all available options, breaking out of it when all options parsed. Inside, the long options for getopt_long are defined.
+	Initial variables are as follows: 
+		- opterr set to zero will remove error message when an invalid option is passed; this is done because we already
+		output a custom error message for this case. 
+		- segfault, catch, in, out are indicators for whether or not the option is passed. 
+		- input, output are C-strings of the names of the files to take in as input and out as output.
+		- inputfd, outputfd are the file descriptors for those files just mentioned.
+
+	By the end of the while loop, the names of the input and output files are defined, assuming they are given as arguments,
+	and the indicators for arguments are reliable indicators for whether or not the argument was passed. Also, if there were
+	any invalid arguments, the program should have exited and outputted an error by now.
+
+	Afterwards, the we check if --segfault was inputted, and if it was, we check if --catch was inputted. If catch was inputted,
+	we let our handler function handle the SIGSEGV signal. We then call induceSIGSEGV(), which tries to set an integer equal to
+	the value defined by the null pointer, evoking a segmentation fault. 
+	
+	We then start the file I/O. First we save the current FD for STDIN and STDOUT. We then check if the input/output was 
+	put into the call, and redirect input/output to STDIN/STDOUT respectively, checking if the input/output files are correctly
+	managed along the way. Afterwards, we read from standard input character by character, stopping at the end of the file and
+	write it to standard output character by character. We then redirect STDIN and STDOUT back to the console. 

@@ -1,0 +1,7 @@
+CS111 project 3A, Spring 2016 - submission by THEODORE NGUYEN, UID: 704-156-701
+
+included files: lab3a.c	,	README	, 	Makefile
+
+- last second checked that only two of the 6 have no diff result on the csvs after sorting.
+
+used data structures from fossies.org and http://students.mimuw.edu.pl/SO/Linux/Kod/include/linux/ext2_fs.h.html

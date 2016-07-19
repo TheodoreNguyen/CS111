@@ -1,0 +1,1012 @@
+CS111 project 2C, Spring 2016 - submission by THEODORE NGUYEN, UID: 704-156-701
+
+Included files: lab2c.c SortedList.c SortedList.h Makefile README graph.PNG
+
+DISCLAIMER: The performance analysis is after the questions and answers in this 
+			README. The performance analysis is a direct output of the data from
+			gprof on each run. The first analysis will include explanations of
+			each chart, while the following ones will omit the explanations, as
+			they are the same as for the first analysis 
+
+QUESTION 2C.1A
+Explain the change in performance of the synchronized methods as a function of
+the number of threads per list.
+	-- As the number of threads per list increases (that is, there is or there is 
+	going to be MORE threads than lists), the performance of the synchronized methods
+	decrease (the cost per operations increases). This is because there will be, on 
+	average, more threads operating on each list. If there is only one thread working 
+	on one list, then there is no resource contention for the list. Since there are
+	more threads operating on each list, there is more resource contention for each list;
+	this obviously increases as the number of threads per list increase. Each thread has a
+	higher probability of waiting on another thread that currently holds the lock for the 
+	list. 
+
+
+QUESTION 2C.1B
+Explain why threads per list is a more interesting number than threads (for this
+particular measurement).
+	-- Since we have more than one list - and also, because of that, we have more
+	than one lock since there exists a lock for each list (sublist, to be accurate) - 
+	then the notion of threads per list allows us to clearly observe the effect of 
+	resource contention on the performance. When we have the ratio of threads to lists
+	equal to 1, then the number of threads equal the number of lists. In this case, 
+	there should be minimal resource contention, as each thread has the capability
+	to be inserting a element/node into a unique sublist. 
+	
+	When this ratio is less than 1, then there is more lists than threads; the probability
+	of resource contention is decreased, but the multilist multilock capability is not being
+	fully utilized. Ideally, we have threads = lists, and ideally (but unlikely, since which
+	sublist a thread is working with is randomly determined by the key hash) each thread is 
+	working on a certain sublist at a point in time.
+	
+	When this ratio is greater than 1, there are more threads than lists. The probability of
+	resource contention is increased, as now at maximum multilock utlization (at a point in
+	time, every sublist's lock is owned by a thread) we will always have threads waiting for 
+	a lock. 
+
+
+
+QUESTION 2C.2A
+Compare the time per operation when increasing the lists value. Explain your
+observations.
+	-- The time per operation decreases when increasing the lists value. AKA, the 
+	performance/efficiency increases when increasing the lists value. The explanation
+	is virtually identical to the reasoning to the last two problems. As you have more 
+	lists, then the probability of resource contention decreases, which means the 
+	probability that a thread will be waiting on another thread to release a lock to a
+	particular sublist will decrease because there are more sublists overall, so the 
+	probability of a particular hash of a key/element being the same as another key/element
+	is lower. Less resource contention = less waiting on locks = less time per operation =
+	higher performance.
+
+
+QUESTION 2C.2B
+Compare the time per operation between mutex and spinlock. Explain your
+observations
+	-- The time per operation of mutex is less than that of spinlock. This is probably
+	because of the nature of the two locks. That is, when a thread tries to acquire a mutex
+	lock and fails, the thread will be put into a queue and put to sleep; therefore, a
+	preemptive scheduler will not preempt the sleeping thread if and when the scheduler does
+	context switch, saving time. In a spin lock, a preemptive scheduler can very well preempt
+	a thread that tries to acquire the spin lock and fails; the spinning thread will waste
+	CPU time constantly checking the lock to see if it is free, instead of, ideally like the
+	mutex lock, having the CPU work on another thread that is actually making progress. 
+
+
+
+QUESTIONS 2C.3A
+Why must the mutex be held when pthread_cond_wait is called?
+	-- pthread_cond_wait is intended for a thread currently holding the mutex and operating on
+	a shared resource; it is used to make the thread wait for a certain condition to be 
+	fulfilled before continuing. If the thread does not hold the mutex, then other threads can
+	change the condition variable. 
+
+
+QUESTION 2C.3B
+Why must the mutex be released when the waiting thread is blocked?
+	-- If the mutex is not released in this case, other threads cannot access the resource
+	and therefore cannot execute and get any work done. The other threads cannot change the 
+	condition variable, so the calling thread will sleep forever.
+
+
+QUESTION 2C.3C
+Why must the mutex be reacquired when the calling thread resumes?
+	-- The calling thread, when resumed, is still inside its critical section. As such, in 
+	order to continue working on the shared resource, it must have ownership, and therefore, 
+	must reacquire the mutex lock.
+
+
+QUESTION 2C.3D
+Why must mutex release be done inside of pthread_cond_wait? Why can't the
+caller simply release the mutex before calling pthread_cond_wait?
+	-- pthread_cond_wait is a atomically executed function, therefore the mutex release is 
+	executed without possibility of preemption. If this is done before calling in the user
+	code, there is the possibility that preemption occurs right after the release of the 
+	mutex and before the call to wait(), and the newly preempted thread can gain ownership
+	of the mutex, when in fact we want to give control back to the calling function. 
+
+
+QUESTION 2C.3E
+Can pthread_cond_wait be implemented in user mode? If so, how? If it can only
+be implemented by a system call, explain why?
+	-- pthread_cond_wait cannot be implemented in user mode. Why? Lets look at
+	what its functionality is again: (1) puts the current thread in the waiting queue, 
+	(2) releases the mutex lock. Most operating systems have a preemptive scheduler,
+	and because we have no control over when a scheduler will perform a thread context
+	switch, we must execute the functionality of pthread_cond_wait() atomically. Why?
+	Lets say it was actually implemented in user mode. Assume that a call to the function
+	is made and the first item is executed and the current thread is placed in the queue. 
+	Then, what if the preemptive scheduler performs a thread context switch before the current
+	thread can release the mutex lock? We enter a deadlock, as the thread put to sleep is 
+	waiting for its turn to execute, but every other thread is waiting for the mutex lock to
+	be released. Therefore, the function cannot be implemented in user mode because it cannot
+	be executed atomically if it was implemented in user mode. It must be implemented through
+	a system call or through a hardware instruction that allows it to be executed atomically,
+	without an interruption.
+
+
+
+
+
+-----------------------PERFORMANCE ANALYSIS - gprof -----------------------------
+
+-- using a SINGLE huge list, no yields, no locks, varying iterations, one thread --
+
+
+------------------------START [unprotected] [iterations = 10]------------------------
+
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+ no time accumulated
+
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  Ts/call  Ts/call  name    
+  0.00      0.00     0.00       20     0.00     0.00  getSubListIndex
+  0.00      0.00     0.00       10     0.00     0.00  SortedList_delete
+  0.00      0.00     0.00       10     0.00     0.00  SortedList_insert
+  0.00      0.00     0.00       10     0.00     0.00  SortedList_lookup
+  0.00      0.00     0.00        2     0.00     0.00  SortedList_length
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+ 
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this 
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) no time propagated
+
+index % time    self  children    called     name
+                0.00    0.00      20/20          thread_routine [14]
+[1]      0.0    0.00    0.00      20         getSubListIndex [1]
+-----------------------------------------------
+                0.00    0.00      10/10          thread_routine [14]
+[2]      0.0    0.00    0.00      10         SortedList_delete [2]
+-----------------------------------------------
+                0.00    0.00      10/10          thread_routine [14]
+[3]      0.0    0.00    0.00      10         SortedList_insert [3]
+-----------------------------------------------
+                0.00    0.00      10/10          thread_routine [14]
+[4]      0.0    0.00    0.00      10         SortedList_lookup [4]
+-----------------------------------------------
+                0.00    0.00       1/2           main [11]
+                0.00    0.00       1/2           thread_routine [14]
+[5]      0.0    0.00    0.00       2         SortedList_length [5]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+   [2] SortedList_delete       [5] SortedList_length       [1] getSubListIndex
+   [3] SortedList_insert       [4] SortedList_lookup
+
+-------------------------END [unprotected] [iterations = 10] --------------------
+
+
+
+
+---------------------START [unprotected] [iterations = 100]---------------------
+
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+ no time accumulated
+
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  Ts/call  Ts/call  name    
+  0.00      0.00     0.00      200     0.00     0.00  getSubListIndex
+  0.00      0.00     0.00      100     0.00     0.00  SortedList_delete
+  0.00      0.00     0.00      100     0.00     0.00  SortedList_insert
+  0.00      0.00     0.00      100     0.00     0.00  SortedList_lookup
+  0.00      0.00     0.00        2     0.00     0.00  SortedList_length
+  
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) no time propagated
+
+index % time    self  children    called     name
+                0.00    0.00     200/200         thread_routine [14]
+[1]      0.0    0.00    0.00     200         getSubListIndex [1]
+-----------------------------------------------
+                0.00    0.00     100/100         thread_routine [14]
+[2]      0.0    0.00    0.00     100         SortedList_delete [2]
+-----------------------------------------------
+                0.00    0.00     100/100         thread_routine [14]
+[3]      0.0    0.00    0.00     100         SortedList_insert [3]
+-----------------------------------------------
+                0.00    0.00     100/100         thread_routine [14]
+[4]      0.0    0.00    0.00     100         SortedList_lookup [4]
+-----------------------------------------------
+                0.00    0.00       1/2           main [11]
+                0.00    0.00       1/2           thread_routine [14]
+[5]      0.0    0.00    0.00       2         SortedList_length [5]
+-----------------------------------------------
+
+Index by function name
+
+   [2] SortedList_delete       [5] SortedList_length       [1] getSubListIndex
+   [3] SortedList_insert       [4] SortedList_lookup
+   
+----------------------END [unprotected] [iterations = 100] --------------------
+
+
+
+
+
+---------------------START [unprotected] [iterations = 1000]-------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+ no time accumulated
+
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  Ts/call  Ts/call  name    
+  0.00      0.00     0.00     2000     0.00     0.00  getSubListIndex
+  0.00      0.00     0.00     1000     0.00     0.00  SortedList_delete
+  0.00      0.00     0.00     1000     0.00     0.00  SortedList_insert
+  0.00      0.00     0.00     1000     0.00     0.00  SortedList_lookup
+  0.00      0.00     0.00        2     0.00     0.00  SortedList_length
+  
+ 
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) no time propagated
+
+index % time    self  children    called     name
+                0.00    0.00    2000/2000        thread_routine [14]
+[1]      0.0    0.00    0.00    2000         getSubListIndex [1]
+-----------------------------------------------
+                0.00    0.00    1000/1000        thread_routine [14]
+[2]      0.0    0.00    0.00    1000         SortedList_delete [2]
+-----------------------------------------------
+                0.00    0.00    1000/1000        thread_routine [14]
+[3]      0.0    0.00    0.00    1000         SortedList_insert [3]
+-----------------------------------------------
+                0.00    0.00    1000/1000        thread_routine [14]
+[4]      0.0    0.00    0.00    1000         SortedList_lookup [4]
+-----------------------------------------------
+                0.00    0.00       1/2           main [11]
+                0.00    0.00       1/2           thread_routine [14]
+[5]      0.0    0.00    0.00       2         SortedList_length [5]
+-----------------------------------------------
+
+Index by function name
+
+   [2] SortedList_delete       [5] SortedList_length       [1] getSubListIndex
+   [3] SortedList_insert       [4] SortedList_lookup
+
+
+
+----------------------END [unprotected] [iterations = 1000] ---------------------
+
+
+
+
+
+------------------START [unprotected] [iterations = 10000]-----------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 87.63      0.07     0.07    10000     7.01     7.01  SortedList_lookup
+ 12.52      0.08     0.01    10000     1.00     1.00  SortedList_insert
+  0.00      0.08     0.00    20000     0.00     0.00  getSubListIndex
+  0.00      0.08     0.00    10000     0.00     0.00  SortedList_delete
+  0.00      0.08     0.00        2     0.00     0.00  SortedList_length
+  
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 12.48% of 0.08 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]    100.0    0.00    0.08                 thread_routine [1]
+                0.07    0.00   10000/10000       SortedList_lookup [2]
+                0.01    0.00   10000/10000       SortedList_insert [3]
+                0.00    0.00   20000/20000       getSubListIndex [4]
+                0.00    0.00   10000/10000       SortedList_delete [5]
+                0.00    0.00       1/2           SortedList_length [6]
+-----------------------------------------------
+                0.07    0.00   10000/10000       thread_routine [1]
+[2]     87.5    0.07    0.00   10000         SortedList_lookup [2]
+-----------------------------------------------
+                0.01    0.00   10000/10000       thread_routine [1]
+[3]     12.5    0.01    0.00   10000         SortedList_insert [3]
+-----------------------------------------------
+                0.00    0.00   20000/20000       thread_routine [1]
+[4]      0.0    0.00    0.00   20000         getSubListIndex [4]
+-----------------------------------------------
+                0.00    0.00   10000/10000       thread_routine [1]
+[5]      0.0    0.00    0.00   10000         SortedList_delete [5]
+-----------------------------------------------
+                0.00    0.00       1/2           main [12]
+                0.00    0.00       1/2           thread_routine [1]
+[6]      0.0    0.00    0.00       2         SortedList_length [6]
+-----------------------------------------------
+
+Index by function name
+
+   [5] SortedList_delete       [6] SortedList_length       [4] getSubListIndex
+   [3] SortedList_insert       [2] SortedList_lookup
+
+
+---------------------END [unprotected] [iterations = 10000] --------------------
+
+
+------------------------------------------------------------------------------------
+
+-- uses mutex lock, 8 threads, and 1000 iterations for each run; varies nlists ---
+
+
+
+------------------START [mutex] [nlists = 1] ------------------------------------
+
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 71.54      0.05     0.05     7989     6.27     6.27  SortedList_insert
+ 28.62      0.07     0.02     8000     2.50     2.50  SortedList_lookup
+  0.00      0.07     0.00    15980     0.00     0.00  getSubListIndex
+  0.00      0.07     0.00     8000     0.00     0.00  SortedList_delete
+  0.00      0.07     0.00        9     0.00     0.00  SortedList_length
+  
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 14.26% of 0.07 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]    100.0    0.00    0.07                 thread_routine [1]
+                0.05    0.00    7989/7989        SortedList_insert [2]
+                0.02    0.00    8000/8000        SortedList_lookup [3]
+                0.00    0.00   15980/15980       getSubListIndex [4]
+                0.00    0.00    8000/8000        SortedList_delete [5]
+                0.00    0.00       8/9           SortedList_length [6]
+-----------------------------------------------
+                0.05    0.00    7989/7989        thread_routine [1]
+[2]     71.4    0.05    0.00    7989         SortedList_insert [2]
+-----------------------------------------------
+                0.02    0.00    8000/8000        thread_routine [1]
+[3]     28.6    0.02    0.00    8000         SortedList_lookup [3]
+-----------------------------------------------
+                0.00    0.00   15980/15980       thread_routine [1]
+[4]      0.0    0.00    0.00   15980         getSubListIndex [4]
+-----------------------------------------------
+                0.00    0.00    8000/8000        thread_routine [1]
+[5]      0.0    0.00    0.00    8000         SortedList_delete [5]
+-----------------------------------------------
+                0.00    0.00       1/9           main [12]
+                0.00    0.00       8/9           thread_routine [1]
+[6]      0.0    0.00    0.00       9         SortedList_length [6]
+-----------------------------------------------
+
+Index by function name
+
+   [5] SortedList_delete       [6] SortedList_length       [4] getSubListIndex
+   [2] SortedList_insert       [3] SortedList_lookup
+
+------------------END [mutex] [nlists = 1] ------------------------------------
+
+
+
+
+------------------START [mutex] [nlists = 2] ------------------------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 50.08      0.02     0.02     7840     2.55     2.55  SortedList_insert
+ 50.08      0.04     0.02     7831     2.56     2.56  SortedList_lookup
+  0.00      0.04     0.00    15701     0.00     0.00  getSubListIndex
+  0.00      0.04     0.00     7855     0.00     0.00  SortedList_delete
+  0.00      0.04     0.00       18     0.00     0.00  SortedList_length
+
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 24.96% of 0.04 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]    100.0    0.00    0.04                 thread_routine [1]
+                0.02    0.00    7840/7840        SortedList_insert [2]
+                0.02    0.00    7831/7831        SortedList_lookup [3]
+                0.00    0.00   15701/15701       getSubListIndex [4]
+                0.00    0.00    7855/7855        SortedList_delete [5]
+                0.00    0.00      16/18          SortedList_length [6]
+-----------------------------------------------
+                0.02    0.00    7840/7840        thread_routine [1]
+[2]     50.0    0.02    0.00    7840         SortedList_insert [2]
+-----------------------------------------------
+                0.02    0.00    7831/7831        thread_routine [1]
+[3]     50.0    0.02    0.00    7831         SortedList_lookup [3]
+-----------------------------------------------
+                0.00    0.00   15701/15701       thread_routine [1]
+[4]      0.0    0.00    0.00   15701         getSubListIndex [4]
+-----------------------------------------------
+                0.00    0.00    7855/7855        thread_routine [1]
+[5]      0.0    0.00    0.00    7855         SortedList_delete [5]
+-----------------------------------------------
+                0.00    0.00       2/18          main [12]
+                0.00    0.00      16/18          thread_routine [1]
+[6]      0.0    0.00    0.00      18         SortedList_length [6]
+-----------------------------------------------
+
+Index by function name
+
+   [5] SortedList_delete       [6] SortedList_length       [4] getSubListIndex
+   [2] SortedList_insert       [3] SortedList_lookup
+
+------------------END [mutex] [nlists = 2] ------------------------------------
+
+
+
+
+
+------------------START [mutex] [nlists = 4] ------------------------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 50.08      0.02     0.02     7305     2.74     2.74  SortedList_lookup
+ 25.04      0.03     0.01     7391     1.36     1.36  SortedList_insert
+ 25.04      0.04     0.01       35   286.15   286.15  SortedList_length
+  0.00      0.04     0.00    14744     0.00     0.00  getSubListIndex
+  0.00      0.04     0.00     7368     0.00     0.00  SortedList_delete
+  
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 24.96% of 0.04 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     97.1    0.00    0.04                 thread_routine [1]
+                0.02    0.00    7305/7305        SortedList_lookup [2]
+                0.01    0.00    7391/7391        SortedList_insert [3]
+                0.01    0.00      31/35          SortedList_length [4]
+                0.00    0.00   14744/14744       getSubListIndex [6]
+                0.00    0.00    7368/7368        SortedList_delete [7]
+-----------------------------------------------
+                0.02    0.00    7305/7305        thread_routine [1]
+[2]     50.0    0.02    0.00    7305         SortedList_lookup [2]
+-----------------------------------------------
+                0.01    0.00    7391/7391        thread_routine [1]
+[3]     25.0    0.01    0.00    7391         SortedList_insert [3]
+-----------------------------------------------
+                0.00    0.00       4/35          main [5]
+                0.01    0.00      31/35          thread_routine [1]
+[4]     25.0    0.01    0.00      35         SortedList_length [4]
+-----------------------------------------------
+                                                 <spontaneous>
+[5]      2.9    0.00    0.00                 main [5]
+                0.00    0.00       4/35          SortedList_length [4]
+-----------------------------------------------
+                0.00    0.00   14744/14744       thread_routine [1]
+[6]      0.0    0.00    0.00   14744         getSubListIndex [6]
+-----------------------------------------------
+                0.00    0.00    7368/7368        thread_routine [1]
+[7]      0.0    0.00    0.00    7368         SortedList_delete [7]
+-----------------------------------------------
+
+Index by function name
+
+[7] SortedList_delete       [4] SortedList_length       [6] getSubListIndex
+   [3] SortedList_insert       [2] SortedList_lookup
+
+------------------END [mutex] [nlists = 4] ------------------------------------
+
+
+
+
+
+------------------START [mutex] [nlists = 8] ------------------------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 80.12      0.04     0.04     6559     6.11     6.11  SortedList_insert
+ 20.03      0.05     0.01     5967     1.68     1.68  SortedList_lookup
+  0.00      0.05     0.00    12440     0.00     0.00  getSubListIndex
+  0.00      0.05     0.00     6010     0.00     0.00  SortedList_delete
+  0.00      0.05     0.00       68     0.00     0.00  SortedList_length
+  
+  	     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 19.97% of 0.05 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]    100.0    0.00    0.05                 thread_routine [1]
+                0.04    0.00    6559/6559        SortedList_insert [2]
+                0.01    0.00    5967/5967        SortedList_lookup [3]
+                0.00    0.00   12440/12440       getSubListIndex [4]
+                0.00    0.00    6010/6010        SortedList_delete [5]
+                0.00    0.00      60/68          SortedList_length [6]
+-----------------------------------------------
+                0.04    0.00    6559/6559        thread_routine [1]
+[2]     80.0    0.04    0.00    6559         SortedList_insert [2]
+-----------------------------------------------
+                0.01    0.00    5967/5967        thread_routine [1]
+[3]     20.0    0.01    0.00    5967         SortedList_lookup [3]
+-----------------------------------------------
+                0.00    0.00   12440/12440       thread_routine [1]
+[4]      0.0    0.00    0.00   12440         getSubListIndex [4]
+-----------------------------------------------
+                0.00    0.00    6010/6010        thread_routine [1]
+[5]      0.0    0.00    0.00    6010         SortedList_delete [5]
+-----------------------------------------------
+                0.00    0.00       8/68          main [12]
+                0.00    0.00      60/68          thread_routine [1]
+[6]      0.0    0.00    0.00      68         SortedList_length [6]
+-----------------------------------------------
+
+Index by function name
+
+   [5] SortedList_delete       [6] SortedList_length       [4] getSubListIndex
+   [2] SortedList_insert       [3] SortedList_lookup
+   
+------------------END [mutex] [nlists = 8] ------------------------------------
+
+
+
+
+
+------------------START [mutex] [nlists = 16] -----------------------------------
+
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+100.15      0.01     0.01     5266     1.90     1.90  SortedList_insert
+  0.00      0.01     0.00     9480     0.00     0.00  getSubListIndex
+  0.00      0.01     0.00     4594     0.00     0.00  SortedList_delete
+  0.00      0.01     0.00     4554     0.00     0.00  SortedList_lookup
+  0.00      0.01     0.00      124     0.00     0.00  SortedList_length
+
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 99.85% of 0.01 seconds
+
+index % time    self  children    called     name
+                0.01    0.00    5266/5266        thread_routine [2]
+[1]    100.0    0.01    0.00    5266         SortedList_insert [1]
+-----------------------------------------------
+                                                 <spontaneous>
+[2]    100.0    0.00    0.01                 thread_routine [2]
+                0.01    0.00    5266/5266        SortedList_insert [1]
+                0.00    0.00    9480/9480        getSubListIndex [3]
+                0.00    0.00    4594/4594        SortedList_delete [4]
+                0.00    0.00    4554/4554        SortedList_lookup [5]
+                0.00    0.00     108/124         SortedList_length [6]
+-----------------------------------------------
+                0.00    0.00    9480/9480        thread_routine [2]
+[3]      0.0    0.00    0.00    9480         getSubListIndex [3]
+-----------------------------------------------
+                0.00    0.00    4594/4594        thread_routine [2]
+[4]      0.0    0.00    0.00    4594         SortedList_delete [4]
+-----------------------------------------------
+                0.00    0.00    4554/4554        thread_routine [2]
+[5]      0.0    0.00    0.00    4554         SortedList_lookup [5]
+-----------------------------------------------
+                0.00    0.00      16/124         main [12]
+                0.00    0.00     108/124         thread_routine [2]
+[6]      0.0    0.00    0.00     124         SortedList_length [6]
+-----------------------------------------------
+
+Index by function name
+
+   [4] SortedList_delete       [6] SortedList_length       [3] getSubListIndex
+   [1] SortedList_insert       [5] SortedList_lookup
+
+
+------------------END [mutex] [nlists = 16] ------------------------------------
+
+
+
+
+
+
+-----------------------------------------------------------------------------------
+
+-- uses spin lock, 8 threads, and 1000 iterations for each run; varies nlists ---
+
+------------------START [spin] [nlists = 1] ------------------------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 89.11      2.42     2.42                             thread_routine
+  6.63      2.60     0.18     7923    22.75    22.75  SortedList_lookup
+  4.42      2.72     0.12     7849    15.31    15.31  SortedList_insert
+  0.00      2.72     0.00    16000     0.00     0.00  getSubListIndex
+  0.00      2.72     0.00     8000     0.00     0.00  SortedList_delete
+  0.00      2.72     0.00        9     0.00     0.00  SortedList_length
+  
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.37% of 2.72 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]    100.0    2.42    0.30                 thread_routine [1]
+                0.18    0.00    7923/7923        SortedList_lookup [2]
+                0.12    0.00    7849/7849        SortedList_insert [3]
+                0.00    0.00   16000/16000       getSubListIndex [4]
+                0.00    0.00    8000/8000        SortedList_delete [5]
+                0.00    0.00       8/9           SortedList_length [6]
+-----------------------------------------------
+                0.18    0.00    7923/7923        thread_routine [1]
+[2]      6.6    0.18    0.00    7923         SortedList_lookup [2]
+-----------------------------------------------
+                0.12    0.00    7849/7849        thread_routine [1]
+[3]      4.4    0.12    0.00    7849         SortedList_insert [3]
+-----------------------------------------------
+                0.00    0.00   16000/16000       thread_routine [1]
+[4]      0.0    0.00    0.00   16000         getSubListIndex [4]
+-----------------------------------------------
+                0.00    0.00    8000/8000        thread_routine [1]
+[5]      0.0    0.00    0.00    8000         SortedList_delete [5]
+-----------------------------------------------
+                0.00    0.00       1/9           main [12]
+                0.00    0.00       8/9           thread_routine [1]
+[6]      0.0    0.00    0.00       9         SortedList_length [6]
+-----------------------------------------------
+
+Index by function name
+
+   [5] SortedList_delete       [6] SortedList_length       [4] getSubListIndex
+   [3] SortedList_insert       [2] SortedList_lookup       [1] thread_routine
+   
+
+------------------END [spin] [nlists = 1] ------------------------------------
+
+
+
+------------------START [spin] [nlists = 2] ------------------------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 62.32      0.28     0.28                             thread_routine
+ 20.03      0.37     0.09     7276    12.39    12.39  SortedList_insert
+ 17.80      0.45     0.08     7533    10.64    10.64  SortedList_lookup
+  0.00      0.45     0.00    15670     0.00     0.00  getSubListIndex
+  0.00      0.45     0.00     7861     0.00     0.00  SortedList_delete
+  0.00      0.45     0.00       18     0.00     0.00  SortedList_length
+  
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 2.22% of 0.45 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]    100.0    0.28    0.17                 thread_routine [1]
+                0.09    0.00    7276/7276        SortedList_insert [2]
+                0.08    0.00    7533/7533        SortedList_lookup [3]
+                0.00    0.00   15670/15670       getSubListIndex [4]
+                0.00    0.00    7861/7861        SortedList_delete [5]
+                0.00    0.00      16/18          SortedList_length [6]
+-----------------------------------------------
+                0.09    0.00    7276/7276        thread_routine [1]
+[2]     20.0    0.09    0.00    7276         SortedList_insert [2]
+-----------------------------------------------
+                0.08    0.00    7533/7533        thread_routine [1]
+[3]     17.8    0.08    0.00    7533         SortedList_lookup [3]
+-----------------------------------------------
+                0.00    0.00   15670/15670       thread_routine [1]
+[4]      0.0    0.00    0.00   15670         getSubListIndex [4]
+-----------------------------------------------
+                0.00    0.00    7861/7861        thread_routine [1]
+[5]      0.0    0.00    0.00    7861         SortedList_delete [5]
+-----------------------------------------------
+                0.00    0.00       2/18          main [12]
+                0.00    0.00      16/18          thread_routine [1]
+[6]      0.0    0.00    0.00      18         SortedList_length [6]
+-----------------------------------------------
+
+
+Index by function name
+
+   [5] SortedList_delete       [6] SortedList_length       [4] getSubListIndex
+   [2] SortedList_insert       [3] SortedList_lookup       [1] thread_routine
+
+------------------END [spin] [nlists = 2] ------------------------------------
+
+
+
+
+------------------START [spin] [nlists = 4] ------------------------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 76.31      0.16     0.16                             thread_routine
+ 14.31      0.19     0.03     6432     4.67     4.67  SortedList_insert
+  9.54      0.21     0.02       34   589.13   589.13  SortedList_length
+  0.00      0.21     0.00    14421     0.00     0.00  getSubListIndex
+  0.00      0.21     0.00     7271     0.00     0.00  SortedList_delete
+  0.00      0.21     0.00     6402     0.00     0.00  SortedList_lookup
+
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 4.75% of 0.21 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     98.9    0.16    0.05                 thread_routine [1]
+                0.03    0.00    6432/6432        SortedList_insert [2]
+                0.02    0.00      30/34          SortedList_length [3]
+                0.00    0.00   14421/14421       getSubListIndex [5]
+                0.00    0.00    7271/7271        SortedList_delete [6]
+                0.00    0.00    6402/6402        SortedList_lookup [7]
+-----------------------------------------------
+                0.03    0.00    6432/6432        thread_routine [1]
+[2]     14.3    0.03    0.00    6432         SortedList_insert [2]
+-----------------------------------------------
+                0.00    0.00       4/34          main [4]
+                0.02    0.00      30/34          thread_routine [1]
+[3]      9.5    0.02    0.00      34         SortedList_length [3]
+-----------------------------------------------
+                                                 <spontaneous>
+[4]      1.1    0.00    0.00                 main [4]
+                0.00    0.00       4/34          SortedList_length [3]
+-----------------------------------------------
+                0.00    0.00   14421/14421       thread_routine [1]
+[5]      0.0    0.00    0.00   14421         getSubListIndex [5]
+-----------------------------------------------
+                0.00    0.00    7271/7271        thread_routine [1]
+[6]      0.0    0.00    0.00    7271         SortedList_delete [6]
+-----------------------------------------------
+                0.00    0.00    6402/6402        thread_routine [1]
+[7]      0.0    0.00    0.00    6402         SortedList_lookup [7]
+-----------------------------------------------
+
+Index by function name
+
+   [6] SortedList_delete       [3] SortedList_length       [5] getSubListIndex
+   [2] SortedList_insert       [7] SortedList_lookup       [1] thread_routine
+
+------------------END [spin] [nlists = 4] ------------------------------------
+
+
+
+------------------START [spin] [nlists = 8] ------------------------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+ 57.23      0.04     0.04     4723     8.48     8.48  SortedList_lookup
+ 28.62      0.06     0.02     5140     3.90     3.90  SortedList_insert
+ 14.31      0.07     0.01                             thread_routine
+  0.00      0.07     0.00    11712     0.00     0.00  getSubListIndex
+  0.00      0.07     0.00     5936     0.00     0.00  SortedList_delete
+  0.00      0.07     0.00       60     0.00     0.00  SortedList_length
+
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 14.26% of 0.07 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]    100.0    0.01    0.06                 thread_routine [1]
+                0.04    0.00    4723/4723        SortedList_lookup [2]
+                0.02    0.00    5140/5140        SortedList_insert [3]
+                0.00    0.00   11712/11712       getSubListIndex [4]
+                0.00    0.00    5936/5936        SortedList_delete [5]
+                0.00    0.00      52/60          SortedList_length [6]
+-----------------------------------------------
+                0.04    0.00    4723/4723        thread_routine [1]
+[2]     57.1    0.04    0.00    4723         SortedList_lookup [2]
+-----------------------------------------------
+                0.02    0.00    5140/5140        thread_routine [1]
+[3]     28.6    0.02    0.00    5140         SortedList_insert [3]
+-----------------------------------------------
+                0.00    0.00   11712/11712       thread_routine [1]
+[4]      0.0    0.00    0.00   11712         getSubListIndex [4]
+-----------------------------------------------
+                0.00    0.00    5936/5936        thread_routine [1]
+[5]      0.0    0.00    0.00    5936         SortedList_delete [5]
+-----------------------------------------------
+                0.00    0.00       8/60          main [12]
+                0.00    0.00      52/60          thread_routine [1]
+[6]      0.0    0.00    0.00      60         SortedList_length [6]
+-----------------------------------------------
+
+Index by function name
+
+   [5] SortedList_delete       [6] SortedList_length       [4] getSubListIndex
+   [3] SortedList_insert       [2] SortedList_lookup       [1] thread_routine
+  
+------------------END [spin] [nlists = 8] ------------------------------------
+
+
+
+------------------START [spin] [nlists = 16] -----------------------------------
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  us/call  us/call  name    
+100.15      0.01     0.01     2837     3.53     3.53  SortedList_lookup
+  0.00      0.01     0.00     7754     0.00     0.00  getSubListIndex
+  0.00      0.01     0.00     3594     0.00     0.00  SortedList_delete
+  0.00      0.01     0.00     3584     0.00     0.00  SortedList_insert
+  0.00      0.01     0.00       98     0.00     0.00  SortedList_length
+  
+  		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 99.85% of 0.01 seconds
+
+index % time    self  children    called     name
+                0.01    0.00    2837/2837        thread_routine [2]
+[1]    100.0    0.01    0.00    2837         SortedList_lookup [1]
+-----------------------------------------------
+                                                 <spontaneous>
+[2]    100.0    0.00    0.01                 thread_routine [2]
+                0.01    0.00    2837/2837        SortedList_lookup [1]
+                0.00    0.00    7754/7754        getSubListIndex [3]
+                0.00    0.00    3594/3594        SortedList_delete [4]
+                0.00    0.00    3584/3584        SortedList_insert [5]
+                0.00    0.00      82/98          SortedList_length [6]
+-----------------------------------------------
+                0.00    0.00    7754/7754        thread_routine [2]
+[3]      0.0    0.00    0.00    7754         getSubListIndex [3]
+-----------------------------------------------
+                0.00    0.00    3594/3594        thread_routine [2]
+[4]      0.0    0.00    0.00    3594         SortedList_delete [4]
+-----------------------------------------------
+                0.00    0.00    3584/3584        thread_routine [2]
+[5]      0.0    0.00    0.00    3584         SortedList_insert [5]
+-----------------------------------------------
+                0.00    0.00      16/98          main [12]
+                0.00    0.00      82/98          thread_routine [2]
+[6]      0.0    0.00    0.00      98         SortedList_length [6]
+-----------------------------------------------
+
+Index by function name
+
+   [4] SortedList_delete       [6] SortedList_length       [3] getSubListIndex
+   [5] SortedList_insert       [1] SortedList_lookup
+
+------------------END [spin] [nlists = 16] ------------------------------------
+

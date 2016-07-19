@@ -1,0 +1,46 @@
+CS111 project 1B, Spring 2016 - submission by THEODORE NGUYEN, UID: 704-156-701
+	
+included files:
+	- 'server.c': server source code
+	- 'client.c': client source code
+	- 'my.key'	: this a key that says "thisIsA16bitsKey" (I know, its not
+			16 bits) used for encryption. I have not tested the encryption 
+			with a different key; more importantly, I have not tested it with
+			a key that didn't have 16 characters.
+	- 'README'	: This is this file
+	- 'Makefile': makefile that follows minimum specs. 
+	
+
+limitations:
+	- might have problems with threads/processes in joining/reaping
+	- uses several global variables and out of place constants(bad practice)
+	
+encryption problems:
+	
+	I only PARTIALLY managed to implement encryption. 
+	
+	Encryption where the CLIENT encrypts and sends 
+	data to SERVER and the SERVER then decrypts that sent data sent over the socket
+	is FUNCTIONAL. The only caveat of this is that 'return' must be pressed twice after
+	entering a command to see the output of the command on the terminal screen
+	
+	Encryption where the SERVER encrypts data and sends it TO THE CLIENT, and then
+	the CLIENT decrypts the data and outputs it to the screen is NOT FUNCTIONAL. In my
+	testing, if I allow the server to encrypt data and send it, the client successfully
+	receives gibberish. However, the client is unable to decrypt the gibberish. 
+	
+	As a result of the latter point, encryption by server + decryption by client has 
+	been DISABLED by default. Encryption by server is found at lines 285-304 in 
+	block comments in server.c; remove the comments to enable encryption by server. 
+	Decryption by client is found at lines 272-297 in block comments in client.c;
+	remove these comments to enable decryption by client.
+	
+	None of these encryptions should take effect all unless --encryption is enabled.
+	
+	Without encryption enabled, the program functions as it should for the most part.
+	I said in the limitations that there might be problems with threads/processes or 
+	with the global variables. I have not run into any problems with this so far in my
+	testing, but I'm guessing it probably might occur with enough strenous testing.
+	
+	
+

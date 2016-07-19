@@ -1,0 +1,130 @@
+CS111 project 4 (embedded systems project), Spring 2016 - submission by THEODORE NGUYEN, UID: 704-156-701
+
+Contents:
+	-- Description of included files
+	-- Problems with dual thread client
+	-- Description of screenshots
+
+included files: 
+	-- README: This file. please read everything
+	-- tls_client.c: this is the working solution - HOWEVER, it is SINGLE THREADED
+	-- tls_client_dual.c: this was my attempt at a two-thread solution
+	-- Lab4-E-2.txt: the log file created upon running corrected tlc_client
+	14 images all in PNG format
+		6 from A:
+			-- Lab4-SecA-Q2(b): initial heartbeats of UDP
+			-- Lab4-SecA-Q4(e): initial packet sniffer UDP
+			-- Lab4-SecA-Q5(b): outcome of set_rate UDP
+			-- Lab4-SecA-Q5(d): packet sniffer after set_rate UDP
+			-- Lab4-SecA-Q6(b): outcome of start_attack UDP
+			-- Lab4-SecA-Q6(d): packet sniffer after start_attack UDP
+		6 from B:
+			-- Lab4-SecB-Q3(b): initial heartbeats TLS
+			-- Lab4-SecB-Q3(b): initial packet sniffer TLS
+			-- Lab4-SecB-Q3(b): outcome of set_rate TLS
+			-- Lab4-SecB-Q3(b): packet sniffer after set_rate TLS
+			-- Lab4-SecB-Q3(b): outcome of start_attack TLS
+			-- Lab4-SecB-Q3(b): packet sniffer after start_attack TLS
+		2 from C:
+			-- Lab4-SecC-Q3: effect of set_rate on fixed TLS
+			-- Lab4-SecC-Q6: log file screenshot from fixed TLS
+
+			
+			
+Problems with Dual Thread client
+	-- under the description for Lab4-SecC-Q3 was the main problem at hand. The goal was to make
+one thread read and the parent thread write. Whenever ./set_rate was called, it was for sure that
+you would have to call SSL_read() twice for that call of set_rate (if set rate was not called, 
+then you would only need to call SSL_read() once) in order to 'empty' the queue for SSL_read(). 
+
+The main problem at hand for me was that whenever I had the child thread handle reading, once 
+set_rate was called for the FIRST TIME, I would forever have the condition:
+
+	strstr(buf, "new_rate: ") != NULL
+
+be satisfied. In the single thread case, upon set_rate was called, this condition was satisfied 
+for only the iteration that set_rate was called. In the dual thread case, the "new_rate" would 
+continue to stay in the subsequent buffers read by SSL_read() after set_rate was called. The
+result is that I had no idea how to handle it, because I needed to call SSL_read() twice 
+for each time set_rate is called in order for the sent and received messages to line up properly.
+Since the condition is always satisfied after the first set_rate, I would end up calling SSL_read()
+twice for every iteration after the first set_rate, resulting in a sort of deadlock on the second
+SSL_read(), as the child waits for a message from the server that will never come, and the parent
+waits for the child to exit. 
+
+
+
+Description of screenshots		
+
+A: Investigating the existing implementation
+
+Lab4-SecA-Q2(b)
+	-- shows a heartbeat value being sent to the server by the client, and then being read back 
+	from the server every 3 seconds (since 3 seconds is the rate here). This relates to the security
+	goals of this system b/c it allows the client to know if the server has been compromised if it
+	receives a different message from what it sent originally. It also allows the client to know
+	if the server is still functioning. 
+Lab4-SecA-Q4(e)
+	-- shows the results of the packet sniffer. Essentially, this constantly probes what is being
+	sent between the client and the server. As we can see, we can see some of the actual message being
+	sent because there was no encryption done before sending the messages. Essentially, this is some
+	susceptibility to a man-in-the-middle attack if I had some method of impersonating the sender; I 
+	essentially know what messages they are sending to each other, so if I can impersonate the sender,
+	I can modify them accordingly to what I want and send my version of the messages to the receiver. 
+Lab4-SecA-Q5(b)
+	-- running ./set_rate <0..5> changes the rate from whatever it currently is to an integer between
+	0 and 5. Essentially, this is either the time in seconds, or a degree at which messages are sent. 
+	Default, the rate was = 3, so the client sent a message every 3 seconds. I modified it to 5 in 
+	my case, since the spec did not specify what to modify the rate to; in response, the client-server
+	exchange detected the adjustment of the rate, and then proceeded to send messages at that new rate 
+	accordingly.
+Lab4-SecA-Q6(b)
+	-- launch attack successfully changed the rate to 15, even though that is outside our boundaries 
+	and did not use the set_rate code made for the task. Shows UDP's susceptibility to attacks. 
+	
+Note: description of Lab4-SecA-Q5(d) and Lab4-SecA-Q6(b) have been omitted because they are virtually
+identical (I think) to Lab4-SecA-Q4(e). Lab4-SecA-Q6(b) is only different in how the output is structured
+	
+	
+	
+B: Building a more secure implementation
+
+Lab4-SecB-Q3(b)
+	-- essentially shows the same behavior as Lab4-SecA-Q2(b); heartbeat value sent in between client and server
+	for the exact same reasons as Lab4-SecA-Q2(b) in UDP
+Lab4-SecB-Q5(e)
+	-- here is the important distinction to UDP - the packet sniffer does NOT show the plaintext of what was
+	being transmitted between the client and server, because the communication was encrypted. TLS is 
+	much more secure in this regard as now the pair is no longer susceptible to man-in-the-middle attacks
+	nor anybody spying on the communications
+Lab4-SecB-Q6(b)
+	-- Has the same behavior as Lab4-SecA-Q5(b) EXCEPT FOR the main fact that the heart-beat received is repeated
+	once when the new rate is received, making the received message be N times behind, the sent message,
+	where N is the number of set_rate requests sent. This is obviously a bug, and I see that later on
+	our task is to fix this bug
+Lab4-SecB-Q7(b)
+	-- There is no reaction to start_attack on the TLS client-server pair. This is probably because
+	TLS is actually secured and encrypted, unlike the unsecured UDP. 
+	
+Note: description of Lab4-SecB-Q6(d) and Lab4-SecA-Q7(d) have been omitted because they are virtually
+identical (I think) to Lab4-SecA-Q5(e). Lab4-SecA-Q7(d) is only different in how the output is structured
+	
+	
+	
+C: Building a more secure implementation with capacity for resolving error behavior
+	
+Lab4-SecC-Q3
+	-- shows that the received and sent messages are now aligned with each other post- set_rate.
+	The main error was the following: 
+	
+	Upon running the client, sent and received messages were identical. However, upon running 
+	./set_rate <0..5>, the received message repeats the current received message once. Because
+	of this, each time ./set_rate is run, the received message is behind one message each time set_rate is run.
+	What I have actually observed is that when I run ./set_rate, SSL_read() will have two of the
+	same message to be read up next in the queue; to fix this, I just call SSL_read() twice when ./set_rate
+	has been detected to have been run, instead of once when it has been been detected to have been run.
+	
+Lab4-SecC-Q6
+	-- shows our result logged from Lab4-SecC-Q3.
+	
+	

@@ -1,0 +1,68 @@
+CS111 project 1A, Spring 2016 - submission by THEODORE NGUYEN, UID: 704-156-701
+
+Included files:
+
+	- 'lab1a.c' - this is the included C source module for the program
+	- 'Makefile' - this is the Makefile used to build both the program and the tarball.
+					its clean functionality removes all non-directory files that are not
+					named "lab1a.c", "Makefile", or "README".
+	- README - this is this file, detailing aspects of the project
+	
+Sources used:
+	
+	Used the wealth of knowledge the internet, ESPECIALLY the following link:
+	
+	http://www.gnu.org/software/libc/manual/html_node/Noncanon-Example.html
+	
+	One of the TA's (I forgot his name) said it was fair game to use and cite this
+	code in implementing part 1, so that I did; was extremely helpful. Modified it 
+	as necessary for this lab (for example, did not check if input was a terminal).
+	
+	Other resources include the man pages at linux.die.net and stackoverflow.com, 
+	as well as the code provided by the TA about piping as well as a bunch of other
+	google pages searched. 
+	
+Other information to bring to attention about the program/description
+	
+	Functions as ideally in the spec. I had a large problem in figuring out how to
+	pipe the output of the shell onto the screen, before finding out I should use 
+	pthread. As a result of this though, that is, using threads and processes, it
+	becomes rather cumbersome as to know when to "reap" your threads and your 
+	child processes. This was mainly because the program, as specified, never really 
+	exited UNLESS a signal was sent. As a result, for something like the main parent
+	process to collect both the thread and the child process would not exactly be as 
+	clear-cut as putting pthread_join() and waitpid() at the end of the parent process.
+	From this point, essentially I might have some problems reaping threads.
+	
+	Another thing to notice is that I did not figure out how to cause the shell to
+	send a EOF or a SIGPIPE to the thread reading from its output. I algorithmically
+	wrote what would happen if a SIGPIPE or EOF was raised FROM the shell, but I was
+	unable to test it since I did not know how to control shell output. By shell,
+	we mean the child process exec'ing the bash shell, obviously.
+	
+Description of program based off of specification (can deduce this from testing program)
+- 	Makefile has three options - make, make dist, make clean
+-   The executable lab1a, when executed without arguments, satisfies part 1 of the project.
+		- It reads input from keyboard into buffer, the buffer size is 1 and we never
+		exceed buffer size
+		- using CTRL+M or CTRL+J for <lf> or <cr> or whatnot will print <cr><lf>
+			- checked using "./lab1a | od -ta"
+		- writes back to display one char at a time
+		- using CTRL+D to evoke the \004 char, EOT says a message and exits
+
+- note that terminal settings are automatically reset on call of exit() or return due
+	to atexit(), called when we do set_input_mode() to get the noncanonical no echo
+	
+- executing ./lab1a --shell does the following (same as spec suppoesedly)
+	- creates two pipes and forks the parent process. One pipe will be used for comms
+	between the child process shell and parent process, reading parent process input
+	from terminal to the child process shell; other pipe used for comms betwen child 
+	process shell and the thread to write the output of the child process shell to 
+	standard output on the terminal screen.
+	- <cr> or <lf> is sent to stdout in parent process as <cr><lf>, but sent to child
+	process shell as <lf>
+	- all the next requirements for handling is done by the handler() function, except
+	for interrupt because that is not a signal
+	
+	
+	

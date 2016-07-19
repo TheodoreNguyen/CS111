@@ -1,0 +1,134 @@
+CS111 project 2A, Spring 2016 - submission by THEODORE NGUYEN, UID: 704-156-701
+
+
+included files:	README, lab2a.c, Makefile, timeopVsIterations.png, timeopVsThreads.png
+
+I used resources from from the book, the TA, lecture slides, and man pages + stackoverflow online.
+	
+	
+	
+QUESTIONS:	
+	
+QUESTION 2A.1A:
+Why does it take this many threads or iterations to result in failure?
+	-- Running the program with only two threads and 1000 iterations results in failure
+	at least 50% of the time. Running it with default iterations and almost any number
+	of threads still results in success. This allows us to see that in order to fail, 
+	you need to run with a large amount of iterations and greater than 1 thread, 
+	obviously. The probability that an interrupt by the scheduler occurs during the 
+	critical section is positively proportional to the number of iterations - with 
+	more iterations, then the critical section access occurs more frequently, giving
+	more time for the interrupt to occur during the critical section and cause the
+	failure. 
+
+
+QUESTION 2A.1B:
+Why does a significantly smaller number of iterations so seldom fail?
+	-- Essentially answered already in question 2A.1A; the event that an interrupt
+	occurs during a critical section is equivalent to the event that the program 
+	fails. As the number of iterations increase, then the amount of time spent by
+	the CPU executing instructions inside the critical section increases. This 
+	increases the probability that an interrupt will occur during the critical section.
+	The number of iterations is then proportional to the probability that the program
+	fails; therefore, with a smaller number of iterations, the program has a 
+	significantly lower probability to fail.
+	
+
+
+
+
+
+QUESTION 2A.2A:
+Why does the average cost per operation drop with increasing iterations?
+	-- The majority of the time cost is through the overhead created when a thread 
+	context switch occurs. When there are little amount of iterations, there are also
+	a little amount of operations (they are actually directly proportional, as there 
+	are 2 operations per iteration in our case, since our operations are just add 1 
+	and then add -1). As such, a large overhead cost that comes as base whenever a 
+	thread context switch occurs is distributed more heavily to each operation, that 
+	is, each operation has more time "allocated" to it. At higher iterations, there are
+	considerably more operations, so this overhead cost is distributed much less heavily
+	over each operation, so there is considerably less time per operation. Essentially, 
+	the amount of overhead grows more slowly than the number of operations, as the number
+	of iterations increase. This is because the overhead happens based off how often the 
+	scheduler decides to context switch. Because the add operation does not require much 
+	CPU time, the scheduler can essentially execute each thread almost to completion while 
+	not needing to context switch. 
+	
+	Another way to look at it is this example. Let "CS" mean "context switch"
+	Case A: Have 10 threads, and 10 iterations (which is 200 add operations)
+COST: (200 ops)(cost per add op) + ((# additional CS's) + (10 CS's minimum)) * (cost 1 CS)
+		
+	Case B: have 10 threads, and 100000 iterations (which is 200000 add operations)
+COST: (200000 ops)(cost per add op) + ((# additional CS's) + (10 CS's minimum)) * (cost 1 CS)
+		
+	If we assume that (# additional CS's) is 0 for both cases, 
+	then the cost only differs by the number cost of the number of the difference of the ops.
+	Because the (cost 1 CS) dominates the rest of the terms, the two essentially have similar
+	total costs; but because B has so many more operations, B has a substantially lower
+	cost per operation.
+
+
+QUESTION 2A.2B:
+How do we know what the “correct” cost is?
+	-- The cost per operation decreases as the number of iterations approaches infinity.
+	We don't expect the cost per operation to actually decrease ALL THE WAY to zero if  
+	the number of iterations was SOMEHOW actually equal to infinity - an operation
+	should incur SOME cost. If the number of iterations was really infinity, then the 
+	observed cost per operation we obtain cannot decrease any more because there are no 
+	more operations to possibly have. We expect this final value to be the actual cost
+	per operation. To put it mathematically, T_observed = T_actual + T_proportional;
+	where T_observed is the time we see outputted from the program, T_proportional is 
+	the factor of time that will approach and become zero if the number of iterations was
+	actually infinity, and T_actual would be the actual cost per operation. 
+
+QUESTION 2A.2C:
+Why are the yield runs so much slower? Where is the extra time going?
+	-- The yield runs are slower because with the yield option, every time the thread
+	tries to subtract 1 or add 1 to the counter, the thread ends up yielding before 
+	that. This means that it lets go of its current execution on the CPU and lets
+	the scheduler choose another thread to run. Each time this occurs, a thread context
+	switch is performed, which incurs the high cost of switching out of the OS kernel
+	and switching out the registers of the threads.
+
+QUESTION 2A.2D:
+Can we get valid timings if we are using yield? How, or why not?
+	-- You can time things if we are using yield, but they won't be representative of 
+	the true cost of the operations we are trying to evaluate - that is, the cost of
+	calling our add function. Therefore, since that is what we are trying to measure,
+	NO you cannot get valid timings unless you can somehow get rid of the time cost 
+	used for the thread context switch. 
+
+
+
+
+	
+QUESTION 2A.3A:
+Why do all of the options perform similarly for low numbers of threads?
+	-- Each of the locking options have similar amounts of overhead at low numbers of
+	threads. At low thread numbers for the spin-lock, the scheduler has a high probability 
+	to return to the original thread; the mutex generally already has high efficiency for 
+	most numbers of threads; compare and swap has a small critical section, lowering the 
+	probability that a context switch occurs there - especially at low thread numbers.
+
+
+QUESTION 2A.3B:
+Why do the three protected operations slow down as the number of threads rises?
+	-- For spinlocks, with higher numbers of threads, there is a substantially higher 
+	probability of picking a thread that is spinning and not the one with the lock, wasting
+	time until the scheduler context switches to another thread. The mutex also needs to select
+	between a larger number of threads, and the same with the compare and swap implementation
+	
+
+QUESTION 2A.3C:
+Why are spinlocks so expensive for large numbers of threads?
+	-- As the number of threads increase, the probability that the scheduler will pick a thread 
+	is spinning will increase. There will be only ONE thread that has the lock and will progress 
+	and eventually allow the other threads to enter the critical section. The scheduler has no
+	awareness of this, and will give all the other threads enough CPU time so they don't starve. 
+	The other threads will loop continuously, checking if the lock is free when it is obviously 
+	not since the thread with the lock needs to finish running. The probability of picking
+	a thread that will waste CPU time and just spin is (1 - (1/N)), where N is the number of threads.
+	
+	
+	
